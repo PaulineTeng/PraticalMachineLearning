@@ -1,0 +1,76 @@
+##Title:  "Predict Exercise Manner"
+###Author: Pauline Teng
+###Date:   10 February 2016
+
+##Synopsis:
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+Class A: exactly according to the specification
+Class B: throwing the elbows to the front
+Class C: lifting the dumbbell only halfway
+Class D: lowering the dumbbell only halfway
+Class E: throwing the hips to the front
+
+More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+###Import Data
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+suppressMessages(library(rattle))
+
+u <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(u, "traindata.csv")
+
+u <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(u, "testdata.csv")
+
+traindata <- read.csv("traindata.csv", na.strings = c("NA","#DIV/0!",""))
+testdata <- read.csv("testdata.csv", na.strings = c("NA","#DIV/0!",""))
+```
+
+###Data Cleansing
+Remove first 7 columns as they are not related to the exercise
+```{r}
+training <- traindata[,-c(1:7)]
+testing <- testdata[,-c(1:7)]
+```
+
+Remove columns that are having NA
+```{r}
+trainset <- training[, colSums(is.na(training)) == 0]
+testset <- testing[, colSums(is.na(testing)) == 0]
+```
+After data cleansing, the number of columns has been reduced from 160 to 53.
+
+###Prepare training and validation datasets
+Create 2 datasets, training and validation set
+```{r}
+inTrain <- createDataPartition(trainset$classe, p = 0.7, list = FALSE)
+trainingSet <- trainset[inTrain, ]
+validateSet <- trainset[-inTrain, ]
+```
+There are 13,737 rows for training dataset and 5,885 for validation dataset.
+
+###Train the model
+Random Forest model is used to model the training set with cross validation method.
+```{r}
+set.seed(1234)
+modelfit <- train(classe ~ ., data = trainingSet, method = "rf", trControl=trainControl(method='cv'))
+modelfit$finalModel
+```
+
+Validate the model with the validation dataset.
+```{r}
+prediction <- predict(modelfit, newdata = validateSet)
+confusionMatrix(prediction, validateSet$classe)
+```
+The accuracy of this random forest model is 0.9927, so the out-of-sample error rate is 0.0073.  In conclusion, this model is good for prediction.
+
+##Predict on the testing dataset
+This model is used to predict the classe of the testing dataset.
+```{r}
+predict(modelfit, testset)
+```
